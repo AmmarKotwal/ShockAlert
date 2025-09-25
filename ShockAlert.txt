@@ -1,0 +1,90 @@
+/*********************
+   NodeMCU + Blynk + Button + Relay + Buzzer + Virtual LED
+   - Button press -> Relay ON + Buzzer ON
+   - Show "Trigger pressed and coordinate is ..." on Blynk Virtual Pin + Turn ON Virtual LED
+   - Button release -> Relay OFF + Buzzer OFF + LED OFF
+   - Show "Last teaser trigger location ..." on Blynk Virtual Pin
+   - Sync Blynk LED with actual relay state on startup
+ *********************/
+
+#define BLYNK_TEMPLATE_ID "TMPL6-9-HTR4j"
+#define BLYNK_TEMPLATE_NAME "taser"
+#define BLYNK_AUTH_TOKEN "6HpZOe7PlmdpdlhdBmgwg-glrXj8B1G_"
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+// WiFi credentials
+char ssid[] = "AZEE";
+char pass[] = "123456789";
+
+// Pin definitions
+#define BUTTON_PIN D5
+#define RELAY_PIN  D2
+#define BUZZER_PIN D3
+
+// Coordinates
+String coordinates = "24.940362, 67.044786";
+
+// Virtual Pins
+#define VPIN_TEXT V1     // Label/Value Display in Blynk
+#define VPIN_LED  V2     // Virtual LED in Blynk
+
+bool messageSent = false;
+
+BLYNK_CONNECTED() {
+  // Sync the LED with actual relay state when app connects
+  int relayState = digitalRead(RELAY_PIN);
+  Blynk.virtualWrite(VPIN_LED, relayState ? 255 : 0);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+}
+
+void loop()
+{
+  Blynk.run();
+
+  int buttonState = digitalRead(BUTTON_PIN);
+
+  if (buttonState == LOW) { // Button pressed
+    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, HIGH);
+
+    Blynk.virtualWrite(VPIN_LED, 255); // Turn ON Virtual LED
+
+    if (!messageSent) {
+      // Show trigger pressed with coordinates
+      String msg = "Trigger pressed,coordinate is " + coordinates;
+      Blynk.virtualWrite(VPIN_TEXT, msg);
+      Serial.println(msg);
+      messageSent = true;
+    }
+
+  } else { // Button released
+    digitalWrite(RELAY_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+
+    Blynk.virtualWrite(VPIN_LED, 0);   // Turn OFF Virtual LED
+
+    if (messageSent) {
+      // Show last trigger location
+      String msg = "Last trigger location " + coordinates;
+      Blynk.virtualWrite(VPIN_TEXT, msg);
+      Serial.println(msg);
+      messageSent = false;
+    }
+  }
+}
